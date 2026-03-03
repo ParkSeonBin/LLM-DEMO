@@ -1,0 +1,15 @@
+version: '3.9'
+
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chroma-server
+    volumes:
+      # 데이터를 내 컴퓨터(로컬)에 저장해서 컨테이너를 꺼도 유지되게 합니다.
+      - ./chroma_data:/chroma/data
+    ports:
+      - "8000:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: always
