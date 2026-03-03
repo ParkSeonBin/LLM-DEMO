@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { ChromaClient } from 'chromadb';
 import { pipeline } from '@xenova/transformers';
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import * as XLSX from 'xlsx';
+import { FileExtractionStrategyFactory } from './strategies/FileExtractionStrategyFactory';
 
 // OpenAI 설정
 const openai = new OpenAI({ apiKey: process.env.OPEN_AI_API_KEY });
@@ -29,42 +29,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "파일이 없습니다." }, { status: 400 });
     }
 
-    const fileName = file.name.toLowerCase();
+    const fileName = file.name;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    let extractedText = "";
 
     console.log(`[Trace] 파일 처리 시작: ${fileName}`);
 
-    // --- [Step 1] 파일 타입별 텍스트 추출 ---
-
-    if (fileName.endsWith('.pdf')) {
-      console.log("[Trace] PDF 텍스트 추출 시도 (pdf-extraction)...");
-      
-      // [수정] pdf-parse 대신 pdf-extraction 사용
-      const pdf = require('pdf-extraction'); 
-      
-      // pdf-extraction은 가끔 데이터 구조에 따라 결과가 다를 수 있어 옵션을 줄 수 있습니다.
-      const pdfData = await pdf(buffer);
-      extractedText = pdfData.text;
-      
-      console.log("[Trace] PDF 추출 성공 (글자수):", extractedText.length);
-    }
-    else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      // 2. Excel 처리
-      const workbook = XLSX.read(buffer, { type: 'buffer' });
-      const sheetNames = workbook.SheetNames;
-      sheetNames.forEach(sheetName => {
-        const worksheet = workbook.Sheets[sheetName];
-        extractedText += XLSX.utils.sheet_to_csv(worksheet) + "\n";
-      });
-    } 
-    else if (fileName.endsWith('.txt')) {
-      // 3. 텍스트 파일 처리
-      extractedText = new TextDecoder().decode(buffer);
-    } 
-    else {
-      return NextResponse.json({ error: "지원하지 않는 파일 형식입니다." }, { status: 400 });
+    // --- [Step 1] 파일 타입별 텍스트 추출 (Strategy Pattern 적용) ---
+    const strategyFactory = new FileExtractionStrategyFactory();
+    let extractedText: string;
+    
+    try {
+      const strategy = strategyFactory.getStrategy(fileName);
+      extractedText = await strategy.extract(buffer, fileName);
+    } catch (error: any) {
+      return NextResponse.json({ error: error.message || "지원하지 않는 파일 형식입니다." }, { status: 400 });
     }
 
     if (!extractedText.trim()) {
