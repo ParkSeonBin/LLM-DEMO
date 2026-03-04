@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-// 아이콘들을 주식/데이터 분석에 어울리는 것들로 추가
 import { User, Lock, LogIn, Building2, HelpCircle, Sparkles, TrendingUp, BarChart3, ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -41,11 +40,10 @@ export default function LoginPage() {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: id, password }),
+        body: JSON.stringify({ userId: id, password }), // email 대신 userId 전송
       })
 
       if (res.ok) {
-        // 아이디 저장 로직
         if (rememberMe) {
           localStorage.setItem('saved_login_id', id)
         } else {
@@ -53,7 +51,8 @@ export default function LoginPage() {
         }
         
         const data = await res.json();
-        console.log(data.user.id);
+        
+        // 서버 응답 데이터 매핑
         const userWithRole = {
           id: data.user.id,
           email: data.user.email,
@@ -61,7 +60,6 @@ export default function LoginPage() {
         };
         
         await login(userWithRole)
-
         router.replace('/')
       } else {
         const data = await res.json()
@@ -76,11 +74,9 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#f8fafc]">
-      {/* 배경 장식... */}
-
       <div className="relative z-10 mx-auto flex w-full max-w-6xl h-[80vh] flex-col justify-center gap-10 px-6 lg:flex-row lg:items-center lg:gap-16">
         
-        {/* 좌측: 서비스 설명 영역 (주식 분석 컨셉) */}
+        {/* 좌측: 서비스 설명 영역 */}
         <div className="flex-1 flex flex-col justify-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50/50 px-4 py-2 text-xs font-semibold text-blue-700 shadow-sm backdrop-blur w-fit">
             <Sparkles className="h-3.5 w-3.5" />
@@ -129,8 +125,8 @@ export default function LoginPage() {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    type="email"
-                    placeholder="admin@stock-insight.com"
+                    type="text"
+                    placeholder="아이디를 입력하세요"
                     value={id}
                     onChange={(e) => setId(e.target.value)}
                     className="pl-10 rounded-xl border-slate-200 focus:border-[#6B9B4D] focus:ring-[#6B9B4D]/20"
@@ -160,21 +156,15 @@ export default function LoginPage() {
                   id="rememberMe"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-[#005F28] focus:ring-[#005F28]/20"
+                  className="h-4 w-4 rounded border-slate-300 text-[#005F28] focus:ring-[#005F28]/20 cursor-pointer"
                 />
-                <label htmlFor="rememberMe" className="text-sm text-slate-600 cursor-pointer">아이디 저장</label>
+                <label htmlFor="rememberMe" className="text-sm text-slate-600 cursor-pointer selection:bg-none">아이디 저장</label>
               </div>
 
-              {/* 로그인 버튼: 아이콘 + 텍스트 */}
+              {error && <p className="text-xs text-red-500 font-medium text-center">{error}</p>}
+
               <Button type="submit" disabled={isLoading} className="w-full rounded-xl bg-[#005F28] hover:bg-[#004d20] py-6 font-semibold text-white shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
-                {isLoading ? (
-                  "로그인 중..."
-                ) : (
-                  <>
-                    <LogIn className="h-5 w-5" /> 
-                    <span>로그인</span>
-                  </>
-                )}
+                {isLoading ? "로그인 중..." : <><LogIn className="h-5 w-5" /> <span>로그인</span></>}
               </Button>
             </form>
 
@@ -190,7 +180,6 @@ export default function LoginPage() {
               Enterprise SSO
             </Button>
 
-            {/* 좌측 정렬된 문의하기 버튼 */}
             <div className="mt-6 flex justify-start">
               <Dialog>
                 <DialogTrigger asChild>
