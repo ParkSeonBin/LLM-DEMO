@@ -38,30 +38,32 @@ function createAgentService(): AgentService {
 export async function POST(req: NextRequest) {
   try {
     const { message } = await req.json();
-
-    if (!message) {
-      return NextResponse.json(
-        { success: false, error: "메시지가 필요합니다." },
-        { status: 400 }
-      );
-    }
-
-    // 의존성 주입을 통해 에이전트 서비스 생성
     const agentService = createAgentService();
+    const encoder = new TextEncoder();
 
-    // 에이전트 실행
-    const answer = await agentService.execute(message, 10);
-
-    return NextResponse.json({ 
-      success: true, 
-      answer 
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // 'onChunk'가 호출될 때마다 즉시 전송
+          await agentService.executeStream(message, (chunk: string) => {
+            if (chunk) {
+              controller.enqueue(encoder.encode(chunk));
+            }
+          });
+          controller.close();
+        } catch (err) {
+          controller.error(err);
+        }
+      },
     });
 
-  } catch (error: any) {
-    console.error("❌ [AI API Error]:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "에이전트 실행 중 오류 발생" },
-      { status: 500 }
-    );
-  }
+    return new NextResponse(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform", // no-transform 추가 (압축 방지)
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no", // Nginx 사용 시 버퍼링 방지 필수 설정
+      },
+    });
+  } catch (error: any) { /* ... */ }
 }

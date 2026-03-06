@@ -64,6 +64,38 @@ export class AgentService {
   }
 
   /**
+   * 에이전트 실행 (스트리밍 버전)
+   * @param message 사용자 메시지
+   * @param onChunk 텍스트 조각이 생성될 때마다 호출되는 콜백
+   */
+  async executeStream(message: string, onChunk: (chunk: string) => void): Promise<void> {
+    const tools = this.createTools();
+    const agent = createReactAgent({
+      llm: this.model,
+      tools: tools,
+      stateModifier: this.getStateModifier(),
+    });
+
+    // 'streamEvents'는 LangChain의 최신 스트리밍 방식입니다.
+    const eventStream = await agent.streamEvents(
+      { messages: [new HumanMessage(message)] },
+      { version: "v2" }
+    );
+
+    for await (const event of eventStream) {
+      const eventType = event.event;
+
+      // 'on_chat_model_stream' 이벤트는 모델이 토큰을 생성할 때마다 발생합니다.
+      if (eventType === "on_chat_model_stream") {
+        const content = event.data.chunk?.content;
+        if (content) {
+          onChunk(content); // 한 글자(토큰) 단위로 즉시 전달
+        }
+      }
+    }
+  }
+
+  /**
    * 에이전트가 사용할 도구들을 생성합니다.
    */
   private createTools() {

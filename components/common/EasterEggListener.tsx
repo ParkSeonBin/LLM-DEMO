@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { 
-  Terminal, X, ShieldCheck, Save, Plus, Trash2, 
-  RefreshCcw, UserPlus, AlertCircle 
-} from 'lucide-react';
+import { X, ShieldCheck, Save, Trash2, RefreshCcw, UserPlus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 
@@ -81,7 +78,7 @@ export const EasterEggListener = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fetchUsers]);
 
-  // [추가] 특정 필드가 원본과 다른지 확인하는 함수
+  // 특정 필드가 원본과 다른지 확인하는 함수
   const isFieldChanged = (index: number, field: keyof UserData, value: any) => {
     const originalRow = originalUsers[index];
     if (!originalRow) return true; // 신규 추가된 행은 무조건 변경으로 간주
@@ -121,7 +118,28 @@ export const EasterEggListener = () => {
   };
 
   const handleSave = async () => {
-    if (!confirm("변경사항을 데이터베이스에 저장하시겠습니까?")) return;
+    // 1. 중복 검사 로직 추가
+    const idSet = new Set();
+    const emailSet = new Set();
+
+    for (const u of users) {
+      if (!u.usr_id || !u.usr_email) {
+        alert("ID와 이메일은 필수 입력 항목입니다.");
+        return;
+      }
+      if (idSet.has(u.usr_id)) {
+        alert(`중복된 ID가 리스트에 존재합니다: ${u.usr_id}`);
+        return;
+      }
+      if (emailSet.has(u.usr_email)) {
+        alert(`중복된 이메일이 리스트에 존재합니다: ${u.usr_email}`);
+        return;
+      }
+      idSet.add(u.usr_id);
+      emailSet.add(u.usr_email);
+    }
+    
+    if (!confirm("변경사항을 저장하시겠습니까?")) return;
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
