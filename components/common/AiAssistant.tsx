@@ -62,6 +62,13 @@ export function AiAssistant() {
     const userMessage = input.trim();
     const sessionId = currentSessionId;
 
+    // 1. 서버에 보내기 전, 현재까지의 대화 중 최근 5개를 추출 (assistant 인사말 제외)
+    // filter를 통해 빈 컨텐츠나 에러 메시지를 제외하고 순수 대화만 넘깁니다.
+    const chatHistory = messages
+      .filter(m => m.content !== '') 
+      .slice(-5); // 최근 5개 추출
+
+    // UI 업데이트 로직 (기존과 동일)
     setSessions(prev => prev.map(s => {
       if (s.id === sessionId) {
         return {
@@ -73,15 +80,19 @@ export function AiAssistant() {
       return s;
     }));
 
-    setInput('')
-    setIsLoading(true)
+    setInput('');
+    setIsLoading(true);
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage }),
-      })
+        // 핵심: 현재 메시지와 이전 대화 내역(history)을 함께 전송
+        body: JSON.stringify({ 
+          message: userMessage,
+          history: chatHistory 
+        }),
+      });
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();

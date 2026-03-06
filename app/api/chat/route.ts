@@ -37,15 +37,18 @@ function createAgentService(): AgentService {
 
 export async function POST(req: NextRequest) {
   try {
-    const { message } = await req.json();
+    // 1. 프론트엔드에서 보낸 message와 history(최근 5개 대화)를 함께 받음
+    const { message, history } = await req.json(); 
+    
     const agentService = createAgentService();
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // 'onChunk'가 호출될 때마다 즉시 전송
-          await agentService.executeStream(message, (chunk: string) => {
+          // 2. executeStream 호출 시 history를 함께 전달
+          // (AgentService의 executeStream 정의도 수정되어야 함)
+          await agentService.executeStream(message, history, (chunk: string) => {
             if (chunk) {
               controller.enqueue(encoder.encode(chunk));
             }
@@ -60,10 +63,12 @@ export async function POST(req: NextRequest) {
     return new NextResponse(stream, {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform", // no-transform 추가 (압축 방지)
+        "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
-        "X-Accel-Buffering": "no", // Nginx 사용 시 버퍼링 방지 필수 설정
+        "X-Accel-Buffering": "no",
       },
     });
-  } catch (error: any) { /* ... */ }
+  } catch (error: any) {
+    return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
+  }
 }

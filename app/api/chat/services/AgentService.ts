@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { DynamicTool } from "@langchain/core/tools";
 import { IChromaService } from './interfaces/IChromaService';
 import { IWebSearchService } from './interfaces/IWebSearchService';
@@ -66,9 +66,14 @@ export class AgentService {
   /**
    * 에이전트 실행 (스트리밍 버전)
    * @param message 사용자 메시지
+   * @param history 이전 대화 내역 (배열)
    * @param onChunk 텍스트 조각이 생성될 때마다 호출되는 콜백
    */
-  async executeStream(message: string, onChunk: (chunk: string) => void): Promise<void> {
+  async executeStream(
+    message: string, 
+    history: any[], // 1. history 파라미터 추가
+    onChunk: (chunk: string) => void
+  ): Promise<void> {
     const tools = this.createTools();
     const agent = createReactAgent({
       llm: this.model,
@@ -76,20 +81,33 @@ export class AgentService {
       stateModifier: this.getStateModifier(),
     });
 
-    // 'streamEvents'는 LangChain의 최신 스트리밍 방식입니다.
+    // 2. history 배열을 LangChain 메시지 객체로 변환
+    const previousMessages = history.map((msg) => {
+      if (msg.role === "user") {
+        return new HumanMessage(msg.content);
+      } else {
+        return new AIMessage(msg.content);
+      }
+    });
+
+    // 3. 변환된 이전 메시지들과 현재 메시지를 합쳐서 전달
     const eventStream = await agent.streamEvents(
-      { messages: [new HumanMessage(message)] },
+      { 
+        messages: [
+          ...previousMessages, // 과거 내역 5개
+          new HumanMessage(message) // 현재 질문
+        ] 
+      },
       { version: "v2" }
     );
 
     for await (const event of eventStream) {
       const eventType = event.event;
 
-      // 'on_chat_model_stream' 이벤트는 모델이 토큰을 생성할 때마다 발생합니다.
       if (eventType === "on_chat_model_stream") {
         const content = event.data.chunk?.content;
         if (content) {
-          onChunk(content); // 한 글자(토큰) 단위로 즉시 전달
+          onChunk(content);
         }
       }
     }

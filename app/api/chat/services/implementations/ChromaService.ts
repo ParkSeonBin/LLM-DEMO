@@ -42,7 +42,7 @@ export class ChromaService implements IChromaService {
       });
 
       // 검색 결과 로그 (디버깅용)
-      console.log("검색된 문서 조각:", results.documents[0]);
+      // console.log("검색된 문서 조각:", results.documents[0]);
 
       const docs = results.documents[0];
       if (!docs || docs.length === 0) {
