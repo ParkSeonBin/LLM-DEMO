@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button"
 import { StatCard } from '@/components/common/StatCard'
 import { AiAssistant } from '@/components/common/AiAssistant'
 import { FileManager } from '@/components/common/FileManager'
-import { EasterEggListener } from '@/components/common/EasterEggListener';
+import { UsrMngListener } from '@/components/common/UsrMngListener';
+import { PwdMngListener } from '@/components/common/PwdMngListener';
 import { useAuth } from "@/lib/auth-context"
 
 export default function MainPage() {
@@ -62,8 +63,9 @@ export default function MainPage() {
 
   return (
     <div className="h-screen w-full bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#f8fafc] relative flex flex-col overflow-hidden text-slate-900">
-      <EasterEggListener />
-      
+      <UsrMngListener />
+      <PwdMngListener />
+
       {/* --- [HEADER] --- */}
       <header className="fixed top-0 left-0 right-0 z-50 pt-4 pb-2 bg-gradient-to-b from-[#f8fafc]/80 to-transparent backdrop-blur-sm">
         <div className="w-full max-w-7xl mx-auto px-6">

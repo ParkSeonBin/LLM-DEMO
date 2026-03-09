@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db';
 import sql from 'mssql';
+import bcrypt from 'bcryptjs';
 
 /**
  * 1. 사용자 전체 목록 조회 (GET)
@@ -10,7 +11,9 @@ export async function GET() {
     const pool = await getDbPool();
     const result = await pool.request().query(`
       SELECT 
-        usr_sid, usr_id, usr_pwd, usr_email, usr_nm_ko, usr_nm_en,
+        usr_sid, usr_id, 
+        -- usr_pwd,
+        usr_email, usr_nm_ko, usr_nm_en,
         status, dept_cd, dept_nm, position_cd, position_nm,
         employ_no, mobile_no, create_dtm, create_usr_id, 
         update_dtm, update_usr_id
@@ -33,12 +36,11 @@ export async function POST(req: NextRequest) {
     const { users, deletedIds, adminId } = await req.json();
     const pool = await getDbPool();
     
-    // 트랜잭션 시작 (일괄 처리의 안정성을 위해)
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
 
     try {
-      // [추가] 1. 삭제 요청 처리
+      // 1. 삭제 요청 처리
       if (deletedIds && deletedIds.length > 0) {
         const deleteRequest = new sql.Request(transaction);
         await deleteRequest.query(`
@@ -52,7 +54,6 @@ export async function POST(req: NextRequest) {
         
         // 공통 파라미터 바인딩
         request.input('usr_id', sql.NVarChar, u.usr_id);
-        request.input('usr_pwd', sql.NVarChar, u.usr_pwd);
         request.input('usr_email', sql.NVarChar, u.usr_email);
         request.input('usr_nm_ko', sql.NVarChar, u.usr_nm_ko);
         request.input('usr_nm_en', sql.NVarChar, u.usr_nm_en || null);
@@ -66,8 +67,9 @@ export async function POST(req: NextRequest) {
         request.input('adminId', sql.NVarChar, adminId);
 
         if (u.usr_sid) {
-          // A. 기존 사용자: UPDATE (아이디/비밀번호/생성정보 제외 수정)
+          // A. 기존 사용자: UPDATE
           request.input('usr_sid', sql.Int, u.usr_sid);
+          
           await request.query(`
             UPDATE TB_CO_USR_M
             SET 
@@ -86,7 +88,11 @@ export async function POST(req: NextRequest) {
             WHERE usr_sid = @usr_sid
           `);
         } else {
-          // B. 신규 사용자: INSERT
+          // B. 신규 사용자: INSERT (패스워드 암호화 적용)
+          const saltRounds = 12;
+          const hashedPwd = await bcrypt.hash(u.usr_pwd || 'InitialPassword123!', saltRounds);
+          request.input('usr_pwd', sql.NVarChar, hashedPwd);
+
           await request.query(`
             INSERT INTO TB_CO_USR_M (
               usr_id, usr_pwd, usr_email, usr_nm_ko, usr_nm_en,

@@ -42,7 +42,7 @@ interface UserData {
   update_usr_id?: string;
 }
 
-export const EasterEggListener = () => {
+export const UsrMngListener = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [users, setUsers] = useState<UserData[]>([]);
   const [originalUsers, setOriginalUsers] = useState<UserData[]>([]); // [추가] 변경 감지용 원본 데이터

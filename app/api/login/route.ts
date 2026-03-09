@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db';
 import sql from 'mssql';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,14 +25,26 @@ export async function POST(req: NextRequest) {
 
     const user = result.recordset[0];
 
-    // 2. 인증 및 상태 검증
-    if (!user || user.usr_pwd !== password) {
+    // 2. 사용자 존재 여부 확인
+    if (!user) {
       return NextResponse.json(
         { error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 
         { status: 401 }
       );
     }
 
+    // 3. [수정] bcrypt 비밀번호 검증
+    // DB의 암호화된 값(user.usr_pwd)과 입력값(password)을 비교합니다.
+    const isPasswordMatch = await bcrypt.compare(password, user.usr_pwd);
+
+    if (!isPasswordMatch) {
+      return NextResponse.json(
+        { error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 
+        { status: 401 }
+      );
+    }
+
+    // 4. 상태 검증 (ACTIVE 여부)
     if (user.status !== 'ACTIVE') {
       return NextResponse.json(
         { error: '비활성화된 계정입니다. 관리자에게 문의하세요.' }, 
@@ -39,12 +52,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. JWT 토큰 생성 (Payload 구성)
+    // 5. JWT 토큰 생성 (Payload 구성)
     const tokenPayload = {
       id: user.usr_id,
       email: user.usr_email,
       name: user.usr_nm_ko,
-      // 필요한 경우 roles: ['USER'] 등을 추가할 수 있습니다.
     };
 
     const accessToken = jwt.sign(
@@ -53,7 +65,7 @@ export async function POST(req: NextRequest) {
       { expiresIn: '24h' }
     );
 
-    // 4. 응답 생성 및 쿠키 설정
+    // 6. 응답 생성 및 쿠키 설정
     const response = NextResponse.json({ 
       success: true,
       user: {
@@ -71,10 +83,6 @@ export async function POST(req: NextRequest) {
       path: '/',
     });
 
-    // 5. [수정] last_login_dtm이 없으므로 대신 update_dtm을 갱신하거나, 
-    // 로깅이 필요 없다면 이 부분을 생략합니다. 
-    // 현재 DDL 기준으로는 로그 기록용 컬럼이 없으므로 업데이트를 생략합니다.
-
     return response;
   } catch (error) {
     console.error('Login Server Error:', error);
@@ -88,7 +96,6 @@ export async function POST(req: NextRequest) {
 export async function DELETE() {
   const response = NextResponse.json({ success: true });
   
-  // 쿠키 삭제
   response.cookies.set('auth_token', '', { 
     path: '/', 
     maxAge: 0 
